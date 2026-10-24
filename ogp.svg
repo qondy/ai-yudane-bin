@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#9b59b6"/>
+  <g transform="translate(600 240) scale(3.6) translate(-32 -32)" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 35 L53 17 L44 53 L31 43 Z"/><path d="M53 17 L31 43"/><path d="M31 43 V53 L37 48"/><path d="M19 11 Q20 17 26 18 Q20 19 19 25 Q18 19 12 18 Q18 17 19 11 Z"/></g>
+  <text x="600" y="480" font-size="76" font-weight="600" text-anchor="middle" fill="#ffffff" font-family="-apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" letter-spacing="-2">毎日AIゆだね便</text>
+</svg>

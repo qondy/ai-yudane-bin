@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-J41Z0NHW20"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-J41Z0NHW20', { 'app_name': 'ai-yudane-bin' });
+  </script>
+
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#9b59b6">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>毎日AIゆだね便</title>
+  <meta name="description" content="出勤前・帰宅後・寝る前の1日3便で、AIへの依頼を習慣にするアプリ。思いついた依頼を受け箱にためて便に載せ、依頼文ビルダーでコピーしてAIへ。受け取った結果のふりかえりや連続日数・カレンダーで、AIにゆだねる習慣が続きます。">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+  <meta property="og:title" content="毎日AIゆだね便">
+  <meta property="og:description" content="出勤前・帰宅後・寝る前の1日3便で、AIにゆだねる習慣を。依頼をためて、便に載せて、受け取ってふりかえる。">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://ai-yudane-bin.vercel.app/ogp.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://ai-yudane-bin.vercel.app/ogp.png">
+</head>
+<body>
+
+  <!-- ログイン画面 -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <span class="login-card__logo"><svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 35 L53 17 L44 53 L31 43 Z"/><path d="M53 17 L31 43"/><path d="M31 43 V53 L37 48"/><path d="M19 11 Q20 17 26 18 Q20 19 19 25 Q18 19 12 18 Q18 17 19 11 Z"/></svg></span>
+      <h1 class="login-card__title">毎日AIゆだね便</h1>
+      <p class="login-card__tagline">出勤前・帰宅後・寝る前。<br>1日3便で、AIにゆだねる習慣を。</p>
+      <button id="btn-google-login" class="google-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Googleでログイン
+      </button>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <header class="app-header">
+      <span class="app-header__brand"><svg width="28" height="28" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-7px"><path d="M11 35 L53 17 L44 53 L31 43 Z"/><path d="M53 17 L31 43"/><path d="M31 43 V53 L37 48"/><path d="M19 11 Q20 17 26 18 Q20 19 19 25 Q18 19 12 18 Q18 17 19 11 Z"/></svg> 毎日AIゆだね便</span>
+      <nav class="app-header__nav">
+        <a href="about.html" class="app-header__about-link">アプリについて</a>
+        <div id="user-info" class="app-header__user hidden">
+          <img id="user-avatar" class="app-header__avatar" src="" alt="" />
+          <span id="user-name" class="app-header__name"></span>
+          <button id="btn-logout" class="btn btn--ghost btn--sm">ログアウト</button>
+        </div>
+      </nav>
+    </header>
+
+    <div class="tabs-bar">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tabs__btn is-active" role="tab" data-tab="today" aria-selected="true">今日の便</button>
+        <button type="button" class="tabs__btn" role="tab" data-tab="inbox" aria-selected="false">受け箱<span class="tabs__count" id="count-inbox"></span></button>
+        <button type="button" class="tabs__btn" role="tab" data-tab="routine" aria-selected="false">定番</button>
+        <button type="button" class="tabs__btn" role="tab" data-tab="review" aria-selected="false">ふりかえり</button>
+      </div>
+    </div>
+
+    <main class="app-main">
+
+      <!-- 今日の便 -->
+      <section class="panel" data-panel="today">
+        <div id="today-loading" class="loading">読み込み中…</div>
+        <div id="today-body" class="hidden">
+          <div class="today-head">
+            <div>
+              <p class="today-head__date" id="today-date"></p>
+              <p class="today-head__title" id="today-title"></p>
+            </div>
+            <div class="today-head__streak">
+              <span class="today-head__streak-num" id="today-streak">0</span>
+              <span class="today-head__streak-label">日連続</span>
+            </div>
+          </div>
+          <div class="bin-dots" id="today-dots" aria-hidden="true"></div>
+
+          <div id="waiting-box" class="waiting hidden">
+            <h2 class="waiting__title">受け取り待ち<span class="waiting__count" id="waiting-count"></span></h2>
+            <p class="waiting__desc">前の便で預けた依頼です。結果を受け取ったら記録しましょう。</p>
+            <div id="waiting-list" class="req-list"></div>
+          </div>
+
+          <div id="slot-list" class="slot-list"></div>
+        </div>
+      </section>
+
+      <!-- 受け箱 -->
+      <section class="panel hidden" data-panel="inbox">
+        <div class="section__head">
+          <h2 class="section__title">受け箱</h2>
+          <p class="section__desc">「AIに頼めそう」と思いついたら、とりあえずここへ。空いている便に載せて依頼します。</p>
+        </div>
+        <button type="button" id="btn-inbox-add" class="btn btn--primary btn--block add-row">＋ 依頼を受け箱に入れる</button>
+        <div id="inbox-list" class="req-list"></div>
+        <p id="inbox-empty" class="empty-state hidden">受け箱は空です。<br>思いついた依頼や、下の「依頼アイデア集」から入れてみましょう。</p>
+
+        <div id="carry-box" class="sub-section hidden">
+          <h3 class="sub-section__title">持ち越し（依頼しなかった便）</h3>
+          <div id="carry-list" class="req-list"></div>
+        </div>
+
+        <div id="future-box" class="sub-section hidden">
+          <h3 class="sub-section__title">明日以降の便</h3>
+          <div id="future-list" class="req-list"></div>
+        </div>
+
+        <div class="sub-section">
+          <h3 class="sub-section__title">依頼アイデア集</h3>
+          <p class="section__desc">何を頼めばいいか迷ったら。タップすると内容を確認して受け箱や便に入れられます。</p>
+          <div id="idea-filter" class="segmented segmented--filter" role="radiogroup" aria-label="アイデアの時間帯"></div>
+          <div id="idea-list" class="idea-list"></div>
+        </div>
+      </section>
+
+      <!-- 定番 -->
+      <section class="panel hidden" data-panel="routine">
+        <div class="section__head">
+          <h2 class="section__title">定番の依頼</h2>
+          <p class="section__desc">毎日・決まった曜日にくり返す依頼です。登録しておくと、その日の便に自動で載ります。</p>
+        </div>
+        <button type="button" id="btn-routine-add" class="btn btn--primary btn--block add-row">＋ 定番の依頼を登録する</button>
+        <div id="routine-list" class="req-list"></div>
+        <p id="routine-empty" class="empty-state hidden">まだ定番の依頼はありません。<br>「毎朝ニュースを要約」「毎晩、明日の段取りを整理」など、<br>くり返す依頼を登録すると、便に自動で載ります。</p>
+      </section>
+
+      <!-- ふりかえり -->
+      <section class="panel hidden" data-panel="review">
+        <div class="stat-row">
+          <div class="stat-card"><div class="stat-card__value" id="stat-streak">0日</div><div class="stat-card__label">連続日数</div></div>
+          <div class="stat-card"><div class="stat-card__value" id="stat-best">0日</div><div class="stat-card__label">最長の連続</div></div>
+          <div class="stat-card"><div class="stat-card__value" id="stat-full">0日</div><div class="stat-card__label">満便の日</div></div>
+          <div class="stat-card"><div class="stat-card__value" id="stat-saved">0分</div><div class="stat-card__label">時短の見込み</div></div>
+        </div>
+
+        <div class="card-surface block">
+          <div class="cal-head">
+            <button type="button" id="btn-cal-prev" class="btn btn--ghost btn--sm" aria-label="前の月">‹</button>
+            <h2 class="block__title cal-head__title" id="cal-title"></h2>
+            <button type="button" id="btn-cal-next" class="btn btn--ghost btn--sm" aria-label="次の月">›</button>
+          </div>
+          <div id="calendar" class="calendar"></div>
+          <div class="cal-legend">
+            <span>依頼した便の数</span>
+            <span class="cal-legend__cell level-0"></span><span>0</span>
+            <span class="cal-legend__cell level-1"></span><span>1</span>
+            <span class="cal-legend__cell level-2"></span><span>2</span>
+            <span class="cal-legend__cell level-3"></span><span>3（満便）</span>
+          </div>
+          <p class="cal-month" id="cal-month-summary"></p>
+        </div>
+
+        <div class="card-surface block">
+          <h2 class="block__title">時間帯ごとの依頼数</h2>
+          <div id="slot-bars" class="slot-bars"></div>
+          <p class="block__note" id="rating-summary"></p>
+        </div>
+
+        <div class="card-surface block">
+          <h2 class="block__title">役に立った依頼</h2>
+          <p class="block__note">★4以上をつけた依頼です。「もう一度」で同じ内容を新しく依頼できます。</p>
+          <div id="good-list" class="req-list"></div>
+          <p id="good-empty" class="block__empty hidden">受け取った結果に★をつけると、ここに並びます。</p>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <p>© 2026 Yuji Nakamura. All rights reserved.</p>
+        <p><a href="https://apps.yuji-nakamura.com/" target="_blank" rel="noopener">他のアプリを見る →</a></p>
+      </footer>
+    </main>
+
+    <a href="about.html" class="about-btn"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="32" cy="32" r="20"/><circle cx="32" cy="22" r="1.5" fill="currentColor" stroke="none"/><line x1="32" y1="30" x2="32" y2="44"/></svg> アプリについて</a>
+    <button type="button" id="btn-fab" class="fab" aria-label="依頼を書く"><svg width="24" height="24" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" aria-hidden="true"><path d="M32 12 V52"/><path d="M12 32 H52"/></svg></button>
+    <button id="feedback-btn" class="feedback-btn" aria-label="ご意見・ご要望"><svg width="22" height="22" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-6px"><rect x="8" y="14" width="48" height="30" rx="8"/><path d="M22 44 L14 54 V44"/></svg> ご意見</button>
+  </div>
+
+  <!-- 依頼の追加・編集 -->
+  <div id="req-modal-overlay" class="dialog-overlay">
+    <form id="req-form" class="modal" novalidate>
+      <div class="modal__head">
+        <div class="modal__title" id="req-modal-title">依頼を書く</div>
+        <button type="button" id="btn-req-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="input-req-title">何を頼む？<span class="field__hint">一覧に出る短い名前</span></label>
+        <input type="text" id="input-req-title" maxlength="60" placeholder="例：明日の会議のアジェンダを作る" />
+      </div>
+
+      <details class="builder" id="builder">
+        <summary class="builder__summary">依頼文ビルダー（目的・前提・出力形式から作る）</summary>
+        <div class="builder__body">
+          <div class="field">
+            <label class="field__label" for="input-b-purpose">目的<span class="field__hint">何のために・何をしてほしいか</span></label>
+            <textarea id="input-b-purpose" rows="2" maxlength="1000" placeholder="例：来週の定例会議を30分で終わらせるためのアジェンダがほしい"></textarea>
+          </div>
+          <div class="field">
+            <label class="field__label" for="input-b-context">前提・背景<span class="field__hint">任意</span></label>
+            <textarea id="input-b-context" rows="2" maxlength="1000" placeholder="例：参加者は5人。前回は議題が多すぎて時間切れになった"></textarea>
+          </div>
+          <div class="field">
+            <label class="field__label" for="input-b-format">出力形式<span class="field__hint">任意</span></label>
+            <input type="text" id="input-b-format" maxlength="1000" placeholder="例：箇条書きで、各項目に時間配分をつけて" />
+            <div id="format-chips" class="chips chips--small"></div>
+          </div>
+          <button type="button" id="btn-build" class="btn btn--ghost btn--block">↓ 依頼文に組み立てる</button>
+        </div>
+      </details>
+
+      <div class="field">
+        <label class="field__label" for="input-req-body">依頼文<span class="field__hint">コピーしてAIに貼り付けます</span></label>
+        <textarea id="input-req-body" rows="6" maxlength="4000" placeholder="AIに送る文章をそのまま書きます。ビルダーで組み立てることもできます。"></textarea>
+      </div>
+
+      <div class="field">
+        <span class="field__label">使うAI</span>
+        <div id="req-ai" class="chips" role="radiogroup" aria-label="使うAI"></div>
+      </div>
+
+      <div class="field" id="req-place-field">
+        <span class="field__label">どこに入れる？</span>
+        <div id="req-day" class="segmented" role="radiogroup" aria-label="入れる先"></div>
+        <div id="req-slot" class="segmented segmented--slot" role="radiogroup" aria-label="便"></div>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="input-req-saved">自分でやると何分かかる？<span class="field__hint">任意・時短の見込みに使います</span></label>
+        <span class="number-unit number-unit--wide"><input type="number" id="input-req-saved" min="0" max="600" step="1" inputmode="numeric" placeholder="例：20" /><span>分</span></span>
+      </div>
+
+      <div class="modal__actions">
+        <button type="button" id="btn-req-delete" class="btn btn--ghost is-danger modal__delete hidden">削除</button>
+        <button type="button" id="btn-req-cancel" class="btn btn--ghost">キャンセル</button>
+        <button type="submit" id="btn-req-submit" class="btn btn--primary">保存する</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 定番の依頼の追加・編集 -->
+  <div id="routine-modal-overlay" class="dialog-overlay">
+    <form id="routine-form" class="modal" novalidate>
+      <div class="modal__head">
+        <div class="modal__title" id="routine-modal-title">定番の依頼を登録する</div>
+        <button type="button" id="btn-routine-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <div class="field">
+        <label class="field__label" for="input-routine-title">何を頼む？</label>
+        <input type="text" id="input-routine-title" maxlength="60" placeholder="例：業界ニュースを3行で" />
+      </div>
+      <div class="field">
+        <label class="field__label" for="input-routine-body">依頼文</label>
+        <textarea id="input-routine-body" rows="5" maxlength="4000" placeholder="毎回AIに送る文章"></textarea>
+      </div>
+      <div class="field">
+        <span class="field__label">使うAI</span>
+        <div id="routine-ai" class="chips" role="radiogroup" aria-label="使うAI"></div>
+      </div>
+      <div class="field">
+        <span class="field__label">載せる便</span>
+        <div id="routine-slot" class="segmented segmented--slot" role="radiogroup" aria-label="便"></div>
+      </div>
+      <div class="field">
+        <span class="field__label">載せる曜日</span>
+        <div id="routine-weekdays" class="weekdays" role="group" aria-label="曜日"></div>
+        <div class="chips chips--small weekdays__quick">
+          <button type="button" class="chip chip--example" data-preset="all">毎日</button>
+          <button type="button" class="chip chip--example" data-preset="weekday">平日</button>
+          <button type="button" class="chip chip--example" data-preset="weekend">土日</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field__label" for="input-routine-saved">自分でやると何分かかる？<span class="field__hint">任意</span></label>
+        <span class="number-unit number-unit--wide"><input type="number" id="input-routine-saved" min="0" max="600" step="1" inputmode="numeric" placeholder="例：15" /><span>分</span></span>
+      </div>
+      <label class="toggle-row hidden" id="routine-active-row">
+        <input type="checkbox" id="input-routine-active" />
+        <span>この定番を使う（オフにすると便に載らなくなります）</span>
+      </label>
+      <div class="modal__actions">
+        <button type="button" id="btn-routine-delete" class="btn btn--ghost is-danger modal__delete hidden">削除</button>
+        <button type="button" id="btn-routine-cancel" class="btn btn--ghost">キャンセル</button>
+        <button type="submit" id="btn-routine-submit" class="btn btn--primary">保存する</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 便に載せる（受け箱から選ぶ） -->
+  <div id="pick-modal-overlay" class="dialog-overlay">
+    <div class="modal">
+      <div class="modal__head">
+        <div class="modal__title" id="pick-modal-title">便に載せる</div>
+        <button type="button" id="btn-pick-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <button type="button" id="btn-pick-new" class="btn btn--primary btn--block">＋ 新しく依頼を書く</button>
+      <h3 class="pick__title">受け箱から選ぶ</h3>
+      <div id="pick-list" class="pick-list"></div>
+      <h3 class="pick__title">この時間帯のアイデア</h3>
+      <div id="pick-ideas" class="pick-list"></div>
+    </div>
+  </div>
+
+  <!-- 便を選ぶ（受け箱の依頼を載せる） -->
+  <div id="load-modal-overlay" class="dialog-overlay">
+    <div class="modal modal--narrow">
+      <div class="modal__head">
+        <div class="modal__title">どの便に載せる？</div>
+        <button type="button" id="btn-load-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <p class="modal__sub" id="load-target"></p>
+      <div id="load-day" class="segmented" role="radiogroup" aria-label="日"></div>
+      <div id="load-slots" class="load-slots"></div>
+    </div>
+  </div>
+
+  <!-- 受け取り・ふりかえり -->
+  <div id="receive-modal-overlay" class="dialog-overlay">
+    <form id="receive-form" class="modal modal--narrow" novalidate>
+      <div class="modal__head">
+        <div class="modal__title">受け取りのふりかえり</div>
+        <button type="button" id="btn-receive-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <p class="modal__sub" id="receive-target"></p>
+      <div class="field">
+        <span class="field__label">役に立った？</span>
+        <div id="receive-stars" class="stars" role="radiogroup" aria-label="役立ち度"></div>
+      </div>
+      <div class="field">
+        <label class="field__label" for="input-receive-memo">メモ<span class="field__hint">任意・次に頼むときのコツなど</span></label>
+        <textarea id="input-receive-memo" rows="3" maxlength="500" placeholder="例：前提をもっと書けば、一発で使える答えになりそう"></textarea>
+      </div>
+      <div class="field">
+        <label class="field__label" for="input-receive-saved">自分でやると何分かかった？<span class="field__hint">時短の見込み</span></label>
+        <span class="number-unit number-unit--wide"><input type="number" id="input-receive-saved" min="0" max="600" step="1" inputmode="numeric" placeholder="例：20" /><span>分</span></span>
+      </div>
+      <div class="field">
+        <span class="field__label">結果をどうした？</span>
+        <div id="receive-status" class="segmented" role="radiogroup" aria-label="結果"></div>
+      </div>
+      <div class="modal__actions">
+        <button type="button" id="btn-receive-routine" class="btn btn--ghost modal__delete">定番にする</button>
+        <button type="submit" id="btn-receive-submit" class="btn btn--primary">記録する</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 削除確認ダイアログ（カスタムUI） -->
+  <div id="confirm-dialog-overlay" class="dialog-overlay">
+    <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+      <div class="dialog__title" id="confirm-dialog-title">削除しますか？</div>
+      <div class="dialog__text" id="confirm-dialog-text">削除すると元に戻せません。</div>
+      <div class="dialog__actions">
+        <button type="button" id="btn-confirm-cancel" class="btn btn--ghost">キャンセル</button>
+        <button type="button" id="btn-confirm-ok" class="btn btn--danger">削除する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 要望送信モーダル -->
+  <div id="feedback-modal-overlay" class="dialog-overlay">
+    <div class="modal">
+      <div class="modal__head">
+        <div class="modal__title">ご意見・ご要望</div>
+        <button type="button" id="btn-feedback-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <textarea id="input-feedback-message" rows="5" maxlength="2000" placeholder="ご意見・ご要望・バグ報告など、なんでもどうぞ"></textarea>
+      <div class="modal__actions">
+        <button type="button" id="btn-feedback-send" class="btn btn--primary">送信する</button>
+      </div>
+      <p class="modal__note">送信内容は開発者に届きます。個人情報は入力しないでください。</p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

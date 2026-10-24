@@ -1,0 +1,53 @@
+// Colors — アメジスト（AIにゆだねる、静かで頼れる紫。OGPサムネイルと統一）
+$color-bg: #f7f4f9;
+$color-surface: #ffffff;
+$color-surface-2: #f1ebf4;
+$color-surface-3: #e3d7ea;
+$color-primary: #9b59b6;
+$color-primary-hover: #8e44ad;
+$color-primary-ink: #7d3c98; // 白地の上で文字として使う濃い紫（コントラスト確保）
+$color-primary-soft: #f4ecf8;
+$color-danger: #dc2626;
+$color-text: #1d1d1f;
+$color-text-muted: #645f69;
+$color-border: #e8e0ed;
+
+// 状態の識別色（primaryには追従させない）
+$color-sent: #2980b9;
+$color-received: #16a085;
+$color-used: #27ae60;
+$color-routine: #d35400;
+
+// カレンダーの濃淡（依頼した便の数 0〜3）
+$heat-colors: (
+  0: #f1ebf4,
+  1: #dcc5e6,
+  2: #bb8fce,
+  3: #9b59b6,
+);
+
+// Typography
+$font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+$font-size-xs: 12px;
+$font-size-sm: 13px;
+$font-size-base: 15px;
+$font-size-lg: 18px;
+$font-size-xl: 22px;
+$font-size-2xl: 28px;
+
+// Spacing
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+$spacing-2xl: 48px;
+
+// Border radius
+$radius-sm: 6px;
+$radius-md: 10px;
+$radius-lg: 16px;
+
+// Breakpoints
+$bp-mobile: 480px;
+$bp-tablet: 768px;
