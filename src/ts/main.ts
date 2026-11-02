@@ -16,6 +16,9 @@ import {
   formatMinutes,
 } from './stats';
 import { AiKind, Request, RequestInput, Routine, RoutineInput, Slot, Status } from './types';
+import { initClickTracking } from './analytics';
+
+initClickTracking();
 
 // ============================================================
 // DOM refs
