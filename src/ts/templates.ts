@@ -38,6 +38,9 @@ export const isSentStatus = (s: Status): boolean => s === 'sent' || s === 'recei
 
 export const WEEKDAY_LABEL = ['日', '月', '火', '水', '木', '金', '土'];
 
+/** 過ぎた便をあとから記録できる日数（昨日から数えて何日前まで） */
+export const RESCUE_DAYS = 7;
+
 export const LIMITS = {
   title: 60,
   body: 4000,

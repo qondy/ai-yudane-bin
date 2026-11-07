@@ -98,6 +98,11 @@
           </div>
 
           <div id="slot-list" class="slot-list"></div>
+
+          <button type="button" id="btn-rescue-open" class="rescue-link">
+            <span class="rescue-link__title">記録し忘れた便を、あとから記録する</span>
+            <span class="rescue-link__desc">過去7日までさかのぼって「依頼済み」にできます</span>
+          </button>
         </div>
       </section>
 
@@ -164,6 +169,7 @@
             <span class="cal-legend__cell level-3"></span><span>3（満便）</span>
           </div>
           <p class="cal-month" id="cal-month-summary"></p>
+          <p class="block__note">過去7日以内の日をタップすると、記録し忘れた便をあとから記録できます。</p>
         </div>
 
         <div class="card-surface block">
@@ -356,6 +362,36 @@
       <div class="modal__actions">
         <button type="button" id="btn-receive-routine" class="btn btn--ghost modal__delete">定番にする</button>
         <button type="submit" id="btn-receive-submit" class="btn btn--primary">記録する</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 過ぎた便をあとから記録（救済） -->
+  <div id="rescue-modal-overlay" class="dialog-overlay">
+    <form id="rescue-form" class="modal" novalidate>
+      <div class="modal__head">
+        <div class="modal__title">あとから記録する</div>
+        <button type="button" id="btn-rescue-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <p class="modal__sub">記録し忘れた便を、過去7日までさかのぼって「依頼済み」にできます。連続日数やカレンダーにも反映されます。</p>
+      <div class="field">
+        <span class="field__label">いつの便？</span>
+        <div id="rescue-day" class="chips chips--scroll" role="radiogroup" aria-label="日"></div>
+        <div id="rescue-slot" class="segmented segmented--slot" role="radiogroup" aria-label="便"></div>
+        <p id="rescue-status" class="rescue__status"></p>
+      </div>
+      <div class="field">
+        <span class="field__label">何を頼んだ？</span>
+        <div id="rescue-candidates" class="pick-list rescue__candidates"></div>
+        <input type="text" id="input-rescue-title" maxlength="60" placeholder="例：明日の会議のアジェンダを作ってもらった" />
+      </div>
+      <div class="field" id="rescue-ai-field">
+        <span class="field__label">使ったAI</span>
+        <div id="rescue-ai" class="chips" role="radiogroup" aria-label="使ったAI"></div>
+      </div>
+      <div class="modal__actions">
+        <button type="button" id="btn-rescue-cancel" class="btn btn--ghost">キャンセル</button>
+        <button type="submit" id="btn-rescue-submit" class="btn btn--primary">記録する</button>
       </div>
     </form>
   </div>

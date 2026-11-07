@@ -4,7 +4,7 @@ import { showToast, openOverlay, closeOverlay, textEl, iconEl, button } from './
 import { submitFeedback } from './feedback';
 import { appTodayKey, addDays, currentSlotOf, dateKey, labelOf, shortLabelOf } from './dates';
 import {
-  SLOTS, SLOT_INFO, AI_KINDS, AI_INFO, STATUS_LABEL, WEEKDAY_LABEL, IDEAS, LIMITS, FORMAT_EXAMPLES,
+  SLOTS, SLOT_INFO, AI_KINDS, AI_INFO, STATUS_LABEL, WEEKDAY_LABEL, IDEAS, LIMITS, FORMAT_EXAMPLES, RESCUE_DAYS,
   isSentStatus, buildPrompt, Idea,
 } from './templates';
 import {
@@ -77,6 +77,18 @@ const goodList = $('good-list');
 const goodEmpty = $('good-empty');
 
 const btnFab = $<HTMLButtonElement>('btn-fab');
+const btnRescueOpen = $<HTMLButtonElement>('btn-rescue-open');
+
+const rescueOverlay = $('rescue-modal-overlay');
+const rescueForm = $<HTMLFormElement>('rescue-form');
+const rescueDay = $('rescue-day');
+const rescueSlot = $('rescue-slot');
+const rescueStatus = $('rescue-status');
+const rescueCandidates = $('rescue-candidates');
+const inputRescueTitle = $<HTMLInputElement>('input-rescue-title');
+const rescueAiField = $('rescue-ai-field');
+const rescueAi = $('rescue-ai');
+const btnRescueSubmit = $<HTMLButtonElement>('btn-rescue-submit');
 
 const reqOverlay = $('req-modal-overlay');
 const reqForm = $<HTMLFormElement>('req-form');
@@ -195,6 +207,12 @@ interface State {
   receiveReqId: string | null;
   receiveRating: number;
   receiveStatus: Status;
+  /** あとから記録（救済） */
+  rescueDayKey: string;
+  rescueSlot: Slot;
+  rescueAi: AiKind;
+  /** 候補から選んだもの（'req:<id>' / 'routine:<id>'）。自由入力なら null */
+  rescuePick: string | null;
 }
 
 const now = new Date();
@@ -224,6 +242,10 @@ const state: State = {
   receiveReqId: null,
   receiveRating: 0,
   receiveStatus: 'received',
+  rescueDayKey: '',
+  rescueSlot: 'morning',
+  rescueAi: 'chatgpt',
+  rescuePick: null,
 };
 
 // ============================================================
@@ -250,6 +272,9 @@ const slotItems = (key: string, slot: Slot): Request[] =>
 const pendingRoutines = (key: string, slot: Slot): Routine[] =>
   state.routines.filter((rt) => rt.slot === slot && routineAppliesOn(rt, key)
     && !state.requests.some((r) => r.routineId === rt.id && r.date === key));
+/** あとから記録できる日（昨日から RESCUE_DAYS 日前まで。新しい順） */
+const rescueDays = (): string[] => Array.from({ length: RESCUE_DAYS }, (_, i) => addDays(today(), -(i + 1)));
+const isRescuable = (key: string | null): boolean => Boolean(key) && rescueDays().includes(key as string);
 const sentSlotsOn = (key: string): Set<Slot> => slotsByDate(state.requests).get(key) ?? new Set();
 
 const dayLabel = (key: string): string => {
@@ -363,7 +388,7 @@ function sendRoutine(rt: Routine, copy: boolean): void {
   void withLock(`routine:${rt.id}`, async () => {
     await createRequest(uid, {
       title: rt.title, body: rt.body, ai: rt.ai, status: 'sent', slot: rt.slot, date: key,
-      savedMin: rt.savedMin, rating: 0, memo: '', routineId: rt.id, sentAt: Date.now(),
+      savedMin: rt.savedMin, rating: 0, memo: '', routineId: rt.id, sentAt: Date.now(), late: false,
     });
     if (!notifyIfFull(key, before) && !copy) showToast(`${SLOT_INFO[rt.slot].name}に依頼しました`);
   });
@@ -386,6 +411,18 @@ function moveToStock(r: Request): void {
   void withLock(r.id, async () => {
     await updateRequest(uid, r.id, { status: 'stock', date: null, slot: null });
     showToast('受け箱に戻しました');
+  });
+}
+
+/** 依頼し忘れて持ち越しになった依頼を、載せていた日の便として「依頼済み」にする（救済） */
+function markLate(r: Request): void {
+  if (!state.uid || !r.date || !r.slot) return;
+  const uid = state.uid;
+  const key = r.date;
+  const slot = r.slot;
+  void withLock(r.id, async () => {
+    await updateRequest(uid, r.id, { status: 'sent', sentAt: Date.now(), late: true });
+    showToast(`${dayLabel(key)}の${SLOT_INFO[slot].name}として記録しました`);
   });
 }
 
@@ -456,6 +493,7 @@ function requestCard(r: Request, ctx: CardContext): HTMLElement {
   const busy = state.pending.has(r.id);
   const tags = [tag(AI_INFO[r.ai].label, 'tag--ai')];
   if (r.routineId) tags.push(tag('定番', 'tag--routine'));
+  if (r.late) tags.push(tag('あとから記録', 'tag--late'));
   if (r.status !== 'stock') tags.push(tag(STATUS_LABEL[r.status], `tag--${r.status}`));
   if (ctx === 'waiting' || ctx === 'carry' || ctx === 'future' || ctx === 'good') tags.push(tag(binLabel(r), 'tag--bin'));
   if (r.savedMin > 0) tags.push(tag(`自分なら${formatMinutes(r.savedMin)}`, 'tag--saved'));
@@ -470,7 +508,7 @@ function requestCard(r: Request, ctx: CardContext): HTMLElement {
     actions.before(result);
   }
   if (r.status === 'sent' && r.sentAt) {
-    actions.before(textEl('p', 'req-card__meta', `${timeLabel(r.sentAt)} に依頼`));
+    actions.before(textEl('p', 'req-card__meta', `${timeLabel(r.sentAt)} に${r.late ? 'あとから記録' : '依頼'}`));
   }
 
   const add = (label: string, cls: string, fn: () => void): void => {
@@ -493,7 +531,8 @@ function requestCard(r: Request, ctx: CardContext): HTMLElement {
       break;
     case 'planned':
       if (ctx === 'carry') {
-        add('便に載せ直す', 'btn--primary', () => openLoadModal(r));
+        if (isRescuable(r.date)) add('その日に依頼した', 'btn--primary', () => markLate(r));
+        add('便に載せ直す', isRescuable(r.date) ? 'btn--ghost' : 'btn--primary', () => openLoadModal(r));
         add('受け箱に戻す', 'btn--ghost', () => moveToStock(r));
         add('削除', 'btn--ghost is-danger', () => confirmDeleteRequest(r));
       } else if (ctx === 'future') {
@@ -709,8 +748,15 @@ function renderReview(): void {
     const n = byDate.get(k)?.size ?? 0;
     monthSent += n;
     if (n === SLOTS.length) monthFull += 1;
-    const cell = textEl('span', `calendar__cell level-${n}${k === key ? ' is-today' : ''}${k > key ? ' is-future' : ''}`, String(d));
-    cell.title = `${m + 1}月${d}日：${n}便`;
+    const rescuable = isRescuable(k);
+    const cell = textEl(rescuable ? 'button' : 'span',
+      `calendar__cell level-${n}${k === key ? ' is-today' : ''}${k > key ? ' is-future' : ''}${rescuable ? ' is-rescuable' : ''}`, String(d));
+    cell.title = `${m + 1}月${d}日：${n}便${rescuable ? '（タップであとから記録）' : ''}`;
+    if (rescuable) {
+      (cell as HTMLButtonElement).type = 'button';
+      cell.dataset.track = 'calendar-rescue';
+      cell.addEventListener('click', () => openRescueModal(k));
+    }
     cells.push(cell);
   }
   calendarEl.replaceChildren(...cells);
@@ -759,9 +805,11 @@ function renderAll(): void {
   if (reqOverlay.classList.contains('is-open')) renderRequestForm();
   if (loadOverlay.classList.contains('is-open')) renderLoadModal();
   if (pickOverlay.classList.contains('is-open')) renderPickModal();
+  if (rescueOverlay.classList.contains('is-open')) renderRescueModal();
   btnReqSubmit.disabled = state.pending.has('req-form');
   btnRoutineSubmit.disabled = state.pending.has('routine-form');
   btnReceiveSubmit.disabled = state.pending.has('receive-form');
+  btnRescueSubmit.disabled = state.pending.has('rescue-form');
 }
 
 // ============================================================
@@ -877,7 +925,7 @@ reqForm.addEventListener('submit', async (e) => {
     } else {
       await createRequest(uid, {
         title, body, ai: state.formAi, status: 'stock', slot: null, date: null,
-        savedMin, rating: 0, memo: '', routineId: null, sentAt: null, ...place,
+        savedMin, rating: 0, memo: '', routineId: null, sentAt: null, late: false, ...place,
       });
     }
   });
@@ -1166,6 +1214,142 @@ btnReceiveRoutine.addEventListener('click', () => {
 $('btn-receive-close').addEventListener('click', closeReceiveModal);
 
 // ============================================================
+// あとから記録（救済）
+// ============================================================
+interface RescueCandidate {
+  key: string;
+  title: string;
+  meta: string;
+}
+
+/** その日・その便で記録できる候補（載せていた依頼・定番・受け箱） */
+function rescueCandidatesOf(day: string, slot: Slot): RescueCandidate[] {
+  const planned = state.requests.filter((r) => r.status === 'planned' && r.date === day && r.slot === slot)
+    .map((r) => ({ key: `req:${r.id}`, title: r.title, meta: `この便に載せていた・${AI_INFO[r.ai].label}` }));
+  const routines = state.routines.filter((rt) => rt.slot === slot && routineAppliesOn(rt, day)
+    && !state.requests.some((r) => r.routineId === rt.id && r.date === day))
+    .map((rt) => ({ key: `routine:${rt.id}`, title: rt.title, meta: `定番・${AI_INFO[rt.ai].label}` }));
+  const stock = stockList().map((r) => ({ key: `req:${r.id}`, title: r.title, meta: `受け箱・${AI_INFO[r.ai].label}` }));
+  return [...planned, ...routines, ...stock];
+}
+
+function renderRescueModal(): void {
+  const days = rescueDays();
+  const byDate = slotsByDate(state.requests);
+  renderChoice(rescueDay, days, state.rescueDayKey,
+    (k) => `${shortLabelOf(k)} ${byDate.get(k)?.size ?? 0}/${SLOTS.length}便`,
+    (k) => { state.rescueDayKey = k; state.rescuePick = null; renderRescueModal(); });
+
+  const sent = sentSlotsOn(state.rescueDayKey);
+  renderChoice(rescueSlot, SLOTS, state.rescueSlot, (s) => `${SLOT_INFO[s].name}${sent.has(s) ? ' ✓' : ''}`,
+    (s) => { state.rescueSlot = s; state.rescuePick = null; renderRescueModal(); }, 'segmented__btn');
+  rescueStatus.textContent = sent.has(state.rescueSlot)
+    ? 'この便はもう依頼済みです。ほかにも頼んだことがあれば追加で記録できます。'
+    : `${shortLabelOf(state.rescueDayKey)}の${SLOT_INFO[state.rescueSlot].name}（${SLOT_INFO[state.rescueSlot].when}）として記録します。`;
+
+  const candidates = rescueCandidatesOf(state.rescueDayKey, state.rescueSlot);
+  rescueCandidates.classList.toggle('hidden', candidates.length === 0);
+  rescueCandidates.replaceChildren(...candidates.map((c) => {
+    const picked = state.rescuePick === c.key;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `pick-item${picked ? ' is-active' : ''}`;
+    b.setAttribute('aria-pressed', String(picked));
+    b.dataset.track = 'rescue-candidate';
+    b.append(textEl('span', 'pick-item__title', c.title), textEl('span', 'pick-item__meta', c.meta));
+    b.addEventListener('click', () => {
+      state.rescuePick = picked ? null : c.key;
+      if (state.rescuePick) inputRescueTitle.value = '';
+      renderRescueModal();
+    });
+    return b;
+  }));
+  inputRescueTitle.placeholder = candidates.length > 0
+    ? '上から選ぶか、頼んだことを書いてください'
+    : '例：明日の会議のアジェンダを作ってもらった';
+  // 候補を選んだときは、その依頼のAIをそのまま使う
+  rescueAiField.classList.toggle('hidden', state.rescuePick !== null);
+  renderChoice(rescueAi, AI_KINDS, state.rescueAi, (v) => AI_INFO[v].label, (v) => { state.rescueAi = v; renderRescueModal(); });
+}
+
+function openRescueModal(day?: string): void {
+  const days = rescueDays();
+  state.rescueDayKey = day && days.includes(day) ? day : days[0];
+  const sent = sentSlotsOn(state.rescueDayKey);
+  state.rescueSlot = SLOTS.find((s) => !sent.has(s)) ?? 'morning';
+  state.rescuePick = null;
+  inputRescueTitle.value = '';
+  renderRescueModal();
+  openOverlay(rescueOverlay);
+}
+
+function closeRescueModal(): void {
+  closeOverlay(rescueOverlay);
+  state.rescuePick = null;
+}
+
+inputRescueTitle.addEventListener('input', () => {
+  if (state.rescuePick && inputRescueTitle.value.trim()) {
+    state.rescuePick = null;
+    renderRescueModal();
+  }
+});
+
+rescueForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!state.uid) return;
+  const uid = state.uid;
+  const day = state.rescueDayKey;
+  const slot = state.rescueSlot;
+  if (!isRescuable(day)) {
+    showToast(`あとから記録できるのは過去${RESCUE_DAYS}日までです`);
+    return;
+  }
+  const pick = state.rescuePick;
+  const title = inputRescueTitle.value.trim();
+  if (!pick && !title) {
+    showToast('何を頼んだかを選ぶか、入力してください');
+    inputRescueTitle.focus();
+    return;
+  }
+  if (title.length > LIMITS.title) {
+    showToast('文字数が多すぎます');
+    return;
+  }
+  const before = sentSlotsOn(day).size;
+  const sentAt = Date.now();
+  const ok = await withLock('rescue-form', async () => {
+    const req = pick?.startsWith('req:') ? findReq(pick.slice(4)) : undefined;
+    const rt = pick?.startsWith('routine:') ? findRoutine(pick.slice(8)) : undefined;
+    if (req) {
+      await updateRequest(uid, req.id, { status: 'sent', date: day, slot, sentAt, late: true });
+    } else if (rt) {
+      await createRequest(uid, {
+        title: rt.title, body: rt.body, ai: rt.ai, status: 'sent', slot, date: day,
+        savedMin: rt.savedMin, rating: 0, memo: '', routineId: rt.id, sentAt, late: true,
+      });
+    } else if (pick) {
+      throw new Error('選んだ依頼が見つかりませんでした');
+    } else {
+      await createRequest(uid, {
+        title, body: '', ai: state.rescueAi, status: 'sent', slot, date: day,
+        savedMin: 0, rating: 0, memo: '', routineId: null, sentAt, late: true,
+      });
+    }
+  });
+  if (!ok) return;
+  closeRescueModal();
+  const full = before < SLOTS.length && sentSlotsOn(day).size === SLOTS.length;
+  showToast(full
+    ? `${shortLabelOf(day)}は満便の日になりました`
+    : `${shortLabelOf(day)}の${SLOT_INFO[slot].name}として記録しました`);
+});
+
+btnRescueOpen.addEventListener('click', () => openRescueModal());
+$('btn-rescue-close').addEventListener('click', closeRescueModal);
+$('btn-rescue-cancel').addEventListener('click', closeRescueModal);
+
+// ============================================================
 // Events
 // ============================================================
 tabButtons.forEach((b) => {
@@ -1212,6 +1396,7 @@ const overlayClosers: [HTMLElement, () => void][] = [
   [confirmOverlay, () => { state.confirmAction = null; closeOverlay(confirmOverlay); }],
   [loadOverlay, () => closeOverlay(loadOverlay)],
   [receiveOverlay, closeReceiveModal],
+  [rescueOverlay, closeRescueModal],
   [reqOverlay, closeRequestModal],
   [routineOverlay, closeRoutineModal],
   [pickOverlay, () => closeOverlay(pickOverlay)],
@@ -1325,7 +1510,7 @@ function onLogout(): void {
   state.requests = [];
   state.routines = [];
   state.loaded = { requests: false, routines: false };
-  [reqOverlay, routineOverlay, pickOverlay, loadOverlay, receiveOverlay, confirmOverlay].forEach(closeOverlay);
+  [reqOverlay, routineOverlay, pickOverlay, loadOverlay, receiveOverlay, rescueOverlay, confirmOverlay].forEach(closeOverlay);
   state.editingReqId = null;
   state.editingRoutineId = null;
   appEl.classList.add('hidden');

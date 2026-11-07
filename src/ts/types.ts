@@ -32,6 +32,8 @@ export interface Request {
   routineId: string | null;
   /** 依頼した時刻（ms） */
   sentAt: number | null;
+  /** 過ぎた便をあとから記録した（救済）か */
+  late: boolean;
   createdAt: number;
 }
 

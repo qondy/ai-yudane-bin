@@ -36,6 +36,7 @@ export function subscribeRequests(uid: string, onData: (list: Request[]) => void
         memo: str(data.memo),
         routineId: typeof data.routineId === 'string' ? data.routineId : null,
         sentAt: isNum(data.sentAt) ? data.sentAt : null,
+        late: data.late === true,
         createdAt: toMillis(data.createdAt),
       });
     });
