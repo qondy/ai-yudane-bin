@@ -1037,3 +1037,94 @@
     border-color: $color-primary;
   }
 }
+
+// ===== why（なぜ頼むのか） =====
+.why-input {
+  width: 100%;
+  padding: 10px $spacing-md;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  background: $color-surface;
+  font-size: $font-size-base;
+  color: $color-text;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.why-starters {
+  margin-top: $spacing-sm;
+}
+
+.req-card__why {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: $spacing-sm;
+  font-size: $font-size-sm;
+  line-height: 1.6;
+  color: $color-text;
+  overflow-wrap: anywhere;
+}
+
+.req-card__why-label {
+  flex-shrink: 0;
+  margin-top: 1px;
+  padding: 1px 7px;
+  border-radius: $radius-sm;
+  background: $color-primary;
+  color: #fff;
+  font-size: $font-size-xs;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.req-card__result .tag {
+  margin-left: 6px;
+}
+
+.tag--why-yes { background: rgba($color-used, 0.14); color: #1e8449; }
+.tag--why-partly { background: rgba($color-late, 0.14); color: #8a6100; }
+.tag--why-no { background: rgba($color-danger, 0.1); color: #b91c1c; }
+
+.why-check {
+  margin-bottom: $spacing-lg;
+  padding: $spacing-md;
+  border-radius: $radius-md;
+  background: $color-primary-soft;
+
+  &__label {
+    font-size: $font-size-xs;
+    font-weight: 800;
+    color: $color-primary-ink;
+  }
+
+  &__text {
+    margin-top: 2px;
+    font-size: $font-size-sm;
+    font-weight: 700;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+
+    &.is-empty {
+      font-weight: 400;
+      color: $color-text-muted;
+    }
+  }
+
+  &__question {
+    margin-top: $spacing-md;
+  }
+}
+
+.dialog--why {
+  max-width: 420px;
+
+  .why-input {
+    margin-bottom: 0;
+  }
+
+  .dialog__actions {
+    margin-top: $spacing-lg;
+    flex-wrap: wrap;
+  }
+}

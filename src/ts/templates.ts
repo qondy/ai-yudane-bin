@@ -1,4 +1,4 @@
-import { AiKind, Slot, Status } from './types';
+import { AiKind, Slot, Status, WhyMet } from './types';
 
 export const SLOTS: Slot[] = ['morning', 'evening', 'night'];
 
@@ -36,6 +36,19 @@ export const isStatus = (v: unknown): v is Status => typeof v === 'string' && (S
 /** 依頼済み（便として数える）状態 */
 export const isSentStatus = (s: Status): boolean => s === 'sent' || s === 'received' || s === 'used';
 
+export const WHY_METS: WhyMet[] = ['yes', 'partly', 'no'];
+
+export const WHY_MET_LABEL: Record<WhyMet, string> = {
+  yes: '満たせた',
+  partly: '一部',
+  no: '満たせなかった',
+};
+
+export const isWhyMet = (v: unknown): v is WhyMet => typeof v === 'string' && (WHY_METS as string[]).includes(v);
+
+/** why を書くときのきっかけ */
+export const WHY_STARTERS = ['〜の時間をつくるため', '判断の材料がほしいから', 'たたき台から始めたいから', '自分で学ぶきっかけにしたいから', '抜け漏れを防ぎたいから'];
+
 export const WEEKDAY_LABEL = ['日', '月', '火', '水', '木', '金', '土'];
 
 /** 過ぎた便をあとから記録できる日数（昨日から数えて何日前まで） */
@@ -43,6 +56,7 @@ export const RESCUE_DAYS = 7;
 
 export const LIMITS = {
   title: 60,
+  why: 200,
   body: 4000,
   memo: 500,
   builderPart: 1000,

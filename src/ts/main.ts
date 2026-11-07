@@ -5,7 +5,7 @@ import { submitFeedback } from './feedback';
 import { appTodayKey, addDays, currentSlotOf, dateKey, labelOf, shortLabelOf } from './dates';
 import {
   SLOTS, SLOT_INFO, AI_KINDS, AI_INFO, STATUS_LABEL, WEEKDAY_LABEL, IDEAS, LIMITS, FORMAT_EXAMPLES, RESCUE_DAYS,
-  isSentStatus, buildPrompt, Idea,
+  WHY_METS, WHY_MET_LABEL, WHY_STARTERS, isSentStatus, buildPrompt, Idea,
 } from './templates';
 import {
   subscribeRequests, createRequest, updateRequest, deleteRequest,
@@ -15,7 +15,7 @@ import {
   slotsByDate, streakOf, bestStreakOf, fullDaysOf, slotCounts, savedTotalOf, averageRating, routineAppliesOn,
   formatMinutes,
 } from './stats';
-import { AiKind, Request, RequestInput, Routine, RoutineInput, Slot, Status } from './types';
+import { AiKind, Request, RequestInput, Routine, RoutineInput, Slot, Status, WhyMet } from './types';
 import { initClickTracking } from './analytics';
 
 initClickTracking();
@@ -94,6 +94,7 @@ const reqOverlay = $('req-modal-overlay');
 const reqForm = $<HTMLFormElement>('req-form');
 const reqModalTitle = $('req-modal-title');
 const inputReqTitle = $<HTMLInputElement>('input-req-title');
+const inputReqWhy = $<HTMLTextAreaElement>('input-req-why');
 const builder = $<HTMLDetailsElement>('builder');
 const inputBPurpose = $<HTMLTextAreaElement>('input-b-purpose');
 const inputBContext = $<HTMLTextAreaElement>('input-b-context');
@@ -113,6 +114,7 @@ const routineOverlay = $('routine-modal-overlay');
 const routineForm = $<HTMLFormElement>('routine-form');
 const routineModalTitle = $('routine-modal-title');
 const inputRoutineTitle = $<HTMLInputElement>('input-routine-title');
+const inputRoutineWhy = $<HTMLTextAreaElement>('input-routine-why');
 const inputRoutineBody = $<HTMLTextAreaElement>('input-routine-body');
 const routineAi = $('routine-ai');
 const routineSlot = $('routine-slot');
@@ -137,12 +139,21 @@ const loadSlots = $('load-slots');
 const receiveOverlay = $('receive-modal-overlay');
 const receiveForm = $<HTMLFormElement>('receive-form');
 const receiveTarget = $('receive-target');
+const receiveWhy = $('receive-why');
+const receiveWhyQuestion = $('receive-why-question');
+const receiveWhyMet = $('receive-why-met');
 const receiveStars = $('receive-stars');
 const inputReceiveMemo = $<HTMLTextAreaElement>('input-receive-memo');
 const inputReceiveSaved = $<HTMLInputElement>('input-receive-saved');
 const receiveStatus = $('receive-status');
 const btnReceiveRoutine = $<HTMLButtonElement>('btn-receive-routine');
 const btnReceiveSubmit = $<HTMLButtonElement>('btn-receive-submit');
+
+const whyOverlay = $('why-dialog-overlay');
+const whyForm = $<HTMLFormElement>('why-form');
+const whyTarget = $('why-target');
+const inputWhy = $<HTMLTextAreaElement>('input-why');
+const btnWhySkip = $<HTMLButtonElement>('btn-why-skip');
 
 const confirmOverlay = $('confirm-dialog-overlay');
 const confirmTitle = $('confirm-dialog-title');
@@ -207,6 +218,9 @@ interface State {
   receiveReqId: string | null;
   receiveRating: number;
   receiveStatus: Status;
+  receiveWhyMet: WhyMet | null;
+  /** 依頼前の why 確認で、OK後に実行する依頼 */
+  whySend: ((why: string) => void) | null;
   /** あとから記録（救済） */
   rescueDayKey: string;
   rescueSlot: Slot;
@@ -242,6 +256,8 @@ const state: State = {
   receiveReqId: null,
   receiveRating: 0,
   receiveStatus: 'received',
+  receiveWhyMet: null,
+  whySend: null,
   rescueDayKey: '',
   rescueSlot: 'morning',
   rescueAi: 'chatgpt',
@@ -367,19 +383,19 @@ function notifyIfFull(key: string, before: number): boolean {
 // ============================================================
 // Actions
 // ============================================================
-function markSent(r: Request, copy: boolean): void {
+function markSent(r: Request, copy: boolean, why?: string): void {
   if (copy) void copyAndOpen(textOf(r), r.ai);
   if (!state.uid || isSentStatus(r.status)) return;
   const uid = state.uid;
   const key = r.date as string;
   const before = sentSlotsOn(key).size;
   void withLock(r.id, async () => {
-    await updateRequest(uid, r.id, { status: 'sent', sentAt: Date.now() });
+    await updateRequest(uid, r.id, { status: 'sent', sentAt: Date.now(), ...(why ? { why } : {}) });
     if (!notifyIfFull(key, before) && !copy) showToast(`${SLOT_INFO[r.slot as Slot].name}に依頼しました`);
   });
 }
 
-function sendRoutine(rt: Routine, copy: boolean): void {
+function sendRoutine(rt: Routine, copy: boolean, why?: string): void {
   if (copy) void copyAndOpen(textOf(rt), rt.ai);
   if (!state.uid) return;
   const uid = state.uid;
@@ -387,11 +403,31 @@ function sendRoutine(rt: Routine, copy: boolean): void {
   const before = sentSlotsOn(key).size;
   void withLock(`routine:${rt.id}`, async () => {
     await createRequest(uid, {
-      title: rt.title, body: rt.body, ai: rt.ai, status: 'sent', slot: rt.slot, date: key,
-      savedMin: rt.savedMin, rating: 0, memo: '', routineId: rt.id, sentAt: Date.now(), late: false,
+      title: rt.title, why: why || rt.why, body: rt.body, ai: rt.ai, status: 'sent', slot: rt.slot, date: key,
+      savedMin: rt.savedMin, rating: 0, whyMet: null, memo: '', routineId: rt.id, sentAt: Date.now(), late: false,
     });
+    // 定番に why が無ければ、次回からも見返せるように定番側にも残す
+    if (why && !rt.why) await updateRoutine(uid, rt.id, { why });
     if (!notifyIfFull(key, before) && !copy) showToast(`${SLOT_INFO[rt.slot].name}に依頼しました`);
   });
+}
+
+/** why が無ければ、依頼の前に「なぜ頼むのか」を確認してから依頼する */
+function sendWithWhy(title: string, why: string, send: (why: string) => void): void {
+  if (why.trim()) {
+    send('');
+    return;
+  }
+  state.whySend = send;
+  whyTarget.textContent = `「${title}」をAIに頼む前に、目的をひとこと。結果を受け取ったとき、満たせたかを確かめられます。`;
+  inputWhy.value = '';
+  openOverlay(whyOverlay);
+  inputWhy.focus();
+}
+
+function closeWhyDialog(): void {
+  closeOverlay(whyOverlay);
+  state.whySend = null;
 }
 
 function unsend(r: Request): void {
@@ -468,7 +504,7 @@ function starsText(rating: number): string {
   return '★'.repeat(rating) + '☆'.repeat(5 - rating);
 }
 
-function cardShell(title: string, tags: HTMLElement[], body: string, extraClass = ''): { card: HTMLElement; actions: HTMLElement } {
+function cardShell(title: string, tags: HTMLElement[], body: string, extraClass = '', why = ''): { card: HTMLElement; actions: HTMLElement } {
   const card = document.createElement('article');
   card.className = `req-card ${extraClass}`.trim();
   const head = document.createElement('div');
@@ -478,6 +514,12 @@ function cardShell(title: string, tags: HTMLElement[], body: string, extraClass 
   tagWrap.className = 'req-card__tags';
   tagWrap.append(...tags);
   card.append(head, tagWrap);
+  if (why.trim()) {
+    const w = document.createElement('p');
+    w.className = 'req-card__why';
+    w.append(textEl('span', 'req-card__why-label', 'why'), textEl('span', 'req-card__why-text', why));
+    card.append(w);
+  }
   if (body.trim()) card.append(preview(body));
   const actions = document.createElement('div');
   actions.className = 'req-card__actions';
@@ -498,12 +540,13 @@ function requestCard(r: Request, ctx: CardContext): HTMLElement {
   if (ctx === 'waiting' || ctx === 'carry' || ctx === 'future' || ctx === 'good') tags.push(tag(binLabel(r), 'tag--bin'));
   if (r.savedMin > 0) tags.push(tag(`自分なら${formatMinutes(r.savedMin)}`, 'tag--saved'));
 
-  const { card, actions } = cardShell(r.title, tags, ctx === 'good' ? '' : r.body, `is-${r.status}`);
+  const { card, actions } = cardShell(r.title, tags, ctx === 'good' ? '' : r.body, `is-${r.status}`, r.why);
 
-  if ((r.status === 'received' || r.status === 'used') && (r.rating > 0 || r.memo)) {
+  if ((r.status === 'received' || r.status === 'used') && (r.rating > 0 || r.memo || r.whyMet)) {
     const result = document.createElement('div');
     result.className = 'req-card__result';
     if (r.rating > 0) result.append(textEl('span', 'req-card__stars', starsText(r.rating)));
+    if (r.whyMet) result.append(tag(`why：${WHY_MET_LABEL[r.whyMet]}`, `tag--why-${r.whyMet}`));
     if (r.memo) result.append(textEl('p', 'req-card__memo', r.memo));
     actions.before(result);
   }
@@ -539,8 +582,8 @@ function requestCard(r: Request, ctx: CardContext): HTMLElement {
         add('編集', 'btn--ghost', () => openRequestModal({ edit: r }));
         add('受け箱に戻す', 'btn--ghost', () => moveToStock(r));
       } else {
-        add(copyLabel(r.ai), 'btn--primary', () => markSent(r, true));
-        add('依頼した', 'btn--ghost', () => markSent(r, false));
+        add(copyLabel(r.ai), 'btn--primary', () => sendWithWhy(r.title, r.why, (why) => markSent(r, true, why)));
+        add('依頼した', 'btn--ghost', () => sendWithWhy(r.title, r.why, (why) => markSent(r, false, why)));
         add('編集', 'btn--ghost', () => openRequestModal({ edit: r }));
       }
       break;
@@ -559,9 +602,9 @@ function requestCard(r: Request, ctx: CardContext): HTMLElement {
 function routineTodayCard(rt: Routine): HTMLElement {
   const busy = state.pending.has(`routine:${rt.id}`);
   const tags = [tag(AI_INFO[rt.ai].label, 'tag--ai'), tag('定番', 'tag--routine'), tag('未依頼', 'tag--planned')];
-  const { card, actions } = cardShell(rt.title, tags, rt.body, 'is-planned is-routine');
-  const b1 = button(copyLabel(rt.ai), 'btn btn--primary btn--sm', () => sendRoutine(rt, true));
-  const b2 = button('依頼した', 'btn btn--ghost btn--sm', () => sendRoutine(rt, false));
+  const { card, actions } = cardShell(rt.title, tags, rt.body, 'is-planned is-routine', rt.why);
+  const b1 = button(copyLabel(rt.ai), 'btn btn--primary btn--sm', () => sendWithWhy(rt.title, rt.why, (why) => sendRoutine(rt, true, why)));
+  const b2 = button('依頼した', 'btn btn--ghost btn--sm', () => sendWithWhy(rt.title, rt.why, (why) => sendRoutine(rt, false, why)));
   b1.disabled = busy;
   b2.disabled = busy;
   actions.append(b1, b2);
@@ -585,7 +628,7 @@ function routineCard(rt: Routine): HTMLElement {
     tag(AI_INFO[rt.ai].label, 'tag--ai'),
   ];
   if (!rt.active) tags.unshift(tag('お休み中', 'tag--off'));
-  const { card, actions } = cardShell(rt.title, tags, rt.body, rt.active ? '' : 'is-off');
+  const { card, actions } = cardShell(rt.title, tags, rt.body, rt.active ? '' : 'is-off', rt.why);
   const toggle = button(rt.active ? 'お休みする' : '再開する', 'btn btn--ghost btn--sm', () => {
     if (!state.uid) return;
     const uid = state.uid;
@@ -785,8 +828,11 @@ function renderReview(): void {
   const avg = averageRating(state.requests);
   const received = state.requests.filter((r) => r.status === 'received' || r.status === 'used');
   const used = received.filter((r) => r.status === 'used').length;
+  const whyChecked = received.filter((r) => r.whyMet);
+  const whyYes = whyChecked.filter((r) => r.whyMet === 'yes').length;
   ratingSummary.textContent = received.length > 0
     ? `受け取った ${received.length}件のうち、活用した ${used}件${avg !== null ? `／平均の役立ち度 ★${avg.toFixed(1)}` : ''}`
+      + (whyChecked.length > 0 ? `／why を満たせた ${whyYes}/${whyChecked.length}件` : '')
     : '受け取った結果を記録すると、役立ち度の平均もここに出ます。';
 
   const good = received.filter((r) => r.rating >= 4)
@@ -831,7 +877,7 @@ function renderChoice<T extends string | number>(
 // ============================================================
 interface RequestModalOptions {
   edit?: Request;
-  prefill?: Partial<Pick<Request, 'title' | 'body' | 'ai' | 'savedMin'>>;
+  prefill?: Partial<Pick<Request, 'title' | 'why' | 'body' | 'ai' | 'savedMin'>>;
   day?: string;
   slot?: Slot;
 }
@@ -851,6 +897,7 @@ function openRequestModal(opts: RequestModalOptions = {}): void {
   state.editingReqId = edit?.id ?? null;
   reqModalTitle.textContent = edit ? '依頼を編集する' : '依頼を書く';
   inputReqTitle.value = edit?.title ?? prefill?.title ?? '';
+  inputReqWhy.value = edit?.why ?? prefill?.why ?? '';
   inputReqBody.value = edit?.body ?? prefill?.body ?? '';
   const saved = edit?.savedMin ?? prefill?.savedMin ?? 0;
   inputReqSaved.value = saved > 0 ? String(saved) : '';
@@ -893,6 +940,7 @@ reqForm.addEventListener('submit', async (e) => {
   if (!state.uid) return;
   const uid = state.uid;
   const body = inputReqBody.value.trim();
+  const why = inputReqWhy.value.trim();
   let title = inputReqTitle.value.trim();
   if (!title && body) title = body.split('\n')[0].slice(0, 30);
   if (!title) {
@@ -900,7 +948,7 @@ reqForm.addEventListener('submit', async (e) => {
     inputReqTitle.focus();
     return;
   }
-  if (title.length > LIMITS.title || body.length > LIMITS.body) {
+  if (title.length > LIMITS.title || body.length > LIMITS.body || why.length > LIMITS.why) {
     showToast('文字数が多すぎます');
     return;
   }
@@ -921,11 +969,11 @@ reqForm.addEventListener('submit', async (e) => {
 
   const ok = await withLock('req-form', async () => {
     if (editing) {
-      await updateRequest(uid, editing.id, { title, body, ai: state.formAi, savedMin, ...place });
+      await updateRequest(uid, editing.id, { title, why, body, ai: state.formAi, savedMin, ...place });
     } else {
       await createRequest(uid, {
-        title, body, ai: state.formAi, status: 'stock', slot: null, date: null,
-        savedMin, rating: 0, memo: '', routineId: null, sentAt: null, late: false, ...place,
+        title, why, body, ai: state.formAi, status: 'stock', slot: null, date: null,
+        savedMin, rating: 0, whyMet: null, memo: '', routineId: null, sentAt: null, late: false, ...place,
       });
     }
   });
@@ -957,6 +1005,13 @@ btnBuild.addEventListener('click', () => {
   }
 });
 
+// ビルダーを開いたとき、why が書いてあれば「目的」に引き継ぐ
+builder.addEventListener('toggle', () => {
+  if (builder.open && !inputBPurpose.value.trim() && inputReqWhy.value.trim()) {
+    inputBPurpose.value = inputReqWhy.value.trim();
+  }
+});
+
 formatChips.replaceChildren(...FORMAT_EXAMPLES.map((f) => button(f, 'chip chip--example', () => {
   const cur = inputBFormat.value.trim();
   inputBFormat.value = cur ? `${cur}、${f}` : f;
@@ -974,7 +1029,7 @@ $('btn-req-cancel').addEventListener('click', closeRequestModal);
 // ============================================================
 interface RoutineModalOptions {
   edit?: Routine;
-  prefill?: Partial<Pick<Routine, 'title' | 'body' | 'ai' | 'slot' | 'savedMin'>>;
+  prefill?: Partial<Pick<Routine, 'title' | 'why' | 'body' | 'ai' | 'slot' | 'savedMin'>>;
 }
 
 function renderRoutineForm(): void {
@@ -997,6 +1052,7 @@ function openRoutineModal(opts: RoutineModalOptions = {}): void {
   state.editingRoutineId = edit?.id ?? null;
   routineModalTitle.textContent = edit ? '定番の依頼を編集する' : '定番の依頼を登録する';
   inputRoutineTitle.value = edit?.title ?? prefill?.title ?? '';
+  inputRoutineWhy.value = edit?.why ?? prefill?.why ?? '';
   inputRoutineBody.value = edit?.body ?? prefill?.body ?? '';
   const saved = edit?.savedMin ?? prefill?.savedMin ?? 0;
   inputRoutineSaved.value = saved > 0 ? String(saved) : '';
@@ -1029,13 +1085,14 @@ routineForm.addEventListener('submit', async (e) => {
   if (!state.uid) return;
   const uid = state.uid;
   const title = inputRoutineTitle.value.trim();
+  const why = inputRoutineWhy.value.trim();
   const body = inputRoutineBody.value.trim();
   if (!title) {
     showToast('何を頼むかを入力してください');
     inputRoutineTitle.focus();
     return;
   }
-  if (title.length > LIMITS.title || body.length > LIMITS.body) {
+  if (title.length > LIMITS.title || body.length > LIMITS.body || why.length > LIMITS.why) {
     showToast('文字数が多すぎます');
     return;
   }
@@ -1051,7 +1108,7 @@ routineForm.addEventListener('submit', async (e) => {
   }
   const editing = findRoutine(state.editingRoutineId);
   const input: RoutineInput = {
-    title, body, ai: state.routineFormAi, slot: state.routineFormSlot,
+    title, why, body, ai: state.routineFormAi, slot: state.routineFormSlot,
     weekdays: Array.from(state.routineFormWeekdays).sort(), savedMin,
     active: editing ? inputRoutineActive.checked : true,
   };
@@ -1159,6 +1216,8 @@ function renderReceiveForm(): void {
     b.setAttribute('aria-checked', String(state.receiveRating === n));
     return b;
   }));
+  renderChoice<WhyMet>(receiveWhyMet, WHY_METS, state.receiveWhyMet as WhyMet, (v) => WHY_MET_LABEL[v],
+    (v) => { state.receiveWhyMet = state.receiveWhyMet === v ? null : v; renderReceiveForm(); }, 'segmented__btn');
   renderChoice<Status>(receiveStatus, ['received', 'used'], state.receiveStatus,
     (v) => (v === 'used' ? '活用した' : '受け取っただけ'), (v) => { state.receiveStatus = v; renderReceiveForm(); }, 'segmented__btn');
 }
@@ -1167,7 +1226,13 @@ function openReceiveModal(r: Request): void {
   state.receiveReqId = r.id;
   state.receiveRating = r.rating;
   state.receiveStatus = r.status === 'used' ? 'used' : 'received';
+  state.receiveWhyMet = r.whyMet;
   receiveTarget.textContent = `「${r.title}」（${binLabel(r)}）`;
+  const hasWhy = Boolean(r.why.trim());
+  receiveWhy.textContent = hasWhy ? r.why : 'この依頼には why が書かれていません。';
+  receiveWhy.classList.toggle('is-empty', !hasWhy);
+  receiveWhyQuestion.classList.toggle('hidden', !hasWhy);
+  receiveWhyMet.classList.toggle('hidden', !hasWhy);
   inputReceiveMemo.value = r.memo;
   inputReceiveSaved.value = r.savedMin > 0 ? String(r.savedMin) : '';
   btnReceiveRoutine.classList.toggle('hidden', Boolean(r.routineId));
@@ -1198,7 +1263,7 @@ receiveForm.addEventListener('submit', async (e) => {
     return;
   }
   const ok = await withLock('receive-form', () => updateRequest(uid, r.id, {
-    status: state.receiveStatus, rating: state.receiveRating, memo, savedMin,
+    status: state.receiveStatus, rating: state.receiveRating, whyMet: r.why.trim() ? state.receiveWhyMet : null, memo, savedMin,
   }));
   if (!ok) return;
   closeReceiveModal();
@@ -1209,7 +1274,7 @@ btnReceiveRoutine.addEventListener('click', () => {
   const r = findReq(state.receiveReqId);
   if (!r) return;
   closeReceiveModal();
-  openRoutineModal({ prefill: { title: r.title, body: r.body, ai: r.ai, slot: r.slot ?? currentSlotOf(), savedMin: r.savedMin } });
+  openRoutineModal({ prefill: { title: r.title, why: r.why, body: r.body, ai: r.ai, slot: r.slot ?? currentSlotOf(), savedMin: r.savedMin } });
 });
 $('btn-receive-close').addEventListener('click', closeReceiveModal);
 
@@ -1325,15 +1390,15 @@ rescueForm.addEventListener('submit', async (e) => {
       await updateRequest(uid, req.id, { status: 'sent', date: day, slot, sentAt, late: true });
     } else if (rt) {
       await createRequest(uid, {
-        title: rt.title, body: rt.body, ai: rt.ai, status: 'sent', slot, date: day,
-        savedMin: rt.savedMin, rating: 0, memo: '', routineId: rt.id, sentAt, late: true,
+        title: rt.title, why: rt.why, body: rt.body, ai: rt.ai, status: 'sent', slot, date: day,
+        savedMin: rt.savedMin, rating: 0, whyMet: null, memo: '', routineId: rt.id, sentAt, late: true,
       });
     } else if (pick) {
       throw new Error('選んだ依頼が見つかりませんでした');
     } else {
       await createRequest(uid, {
-        title, body: '', ai: state.rescueAi, status: 'sent', slot, date: day,
-        savedMin: 0, rating: 0, memo: '', routineId: null, sentAt, late: true,
+        title, why: '', body: '', ai: state.rescueAi, status: 'sent', slot, date: day,
+        savedMin: 0, rating: 0, whyMet: null, memo: '', routineId: null, sentAt, late: true,
       });
     }
   });
@@ -1348,6 +1413,47 @@ rescueForm.addEventListener('submit', async (e) => {
 btnRescueOpen.addEventListener('click', () => openRescueModal());
 $('btn-rescue-close').addEventListener('click', closeRescueModal);
 $('btn-rescue-cancel').addEventListener('click', closeRescueModal);
+
+// ============================================================
+// 依頼前の why 確認
+// ============================================================
+whyForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const why = inputWhy.value.trim();
+  if (!why) {
+    showToast('why をひとこと書くか、「なしで依頼する」を選んでください');
+    inputWhy.focus();
+    return;
+  }
+  if (why.length > LIMITS.why) {
+    showToast('文字数が多すぎます');
+    return;
+  }
+  const send = state.whySend;
+  closeWhyDialog();
+  // クリック直後に同期で実行する（AIを開くポップアップがブロックされないように）
+  send?.(why);
+});
+btnWhySkip.addEventListener('click', () => {
+  const send = state.whySend;
+  closeWhyDialog();
+  send?.('');
+});
+
+// why のきっかけチップ（タップすると入力欄に入る）
+document.querySelectorAll<HTMLElement>('.why-starters').forEach((wrap) => {
+  const target = document.getElementById(wrap.dataset.target ?? '') as HTMLTextAreaElement | null;
+  if (!target) return;
+  wrap.replaceChildren(...WHY_STARTERS.map((w) => {
+    const b = button(w, 'chip chip--example', () => {
+      const cur = target.value.trim();
+      target.value = (cur ? `${cur}、${w}` : w).slice(0, LIMITS.why);
+      target.focus();
+    });
+    b.dataset.track = 'why-starter';
+    return b;
+  }));
+});
 
 // ============================================================
 // Events
@@ -1394,6 +1500,7 @@ btnConfirmOk.addEventListener('click', async () => {
 // 背景クリック・Escで閉じる（確認ダイアログを最優先）
 const overlayClosers: [HTMLElement, () => void][] = [
   [confirmOverlay, () => { state.confirmAction = null; closeOverlay(confirmOverlay); }],
+  [whyOverlay, closeWhyDialog],
   [loadOverlay, () => closeOverlay(loadOverlay)],
   [receiveOverlay, closeReceiveModal],
   [rescueOverlay, closeRescueModal],
@@ -1510,7 +1617,8 @@ function onLogout(): void {
   state.requests = [];
   state.routines = [];
   state.loaded = { requests: false, routines: false };
-  [reqOverlay, routineOverlay, pickOverlay, loadOverlay, receiveOverlay, rescueOverlay, confirmOverlay].forEach(closeOverlay);
+  [reqOverlay, routineOverlay, pickOverlay, loadOverlay, receiveOverlay, rescueOverlay, whyOverlay, confirmOverlay].forEach(closeOverlay);
+  state.whySend = null;
   state.editingReqId = null;
   state.editingRoutineId = null;
   appEl.classList.add('hidden');

@@ -210,6 +210,12 @@
         <input type="text" id="input-req-title" maxlength="60" placeholder="例：明日の会議のアジェンダを作る" />
       </div>
 
+      <div class="field">
+        <label class="field__label" for="input-req-why">なぜ頼む？（why）<span class="field__hint">何のため？結果をどう使う？</span></label>
+        <textarea id="input-req-why" class="why-input" rows="2" maxlength="200" placeholder="例：会議を30分で終わらせて、午後の作業時間を確保したいから"></textarea>
+        <div class="chips chips--small chips--scroll why-starters" data-target="input-req-why"></div>
+      </div>
+
       <details class="builder" id="builder">
         <summary class="builder__summary">依頼文ビルダー（目的・前提・出力形式から作る）</summary>
         <div class="builder__body">
@@ -269,6 +275,11 @@
       <div class="field">
         <label class="field__label" for="input-routine-title">何を頼む？</label>
         <input type="text" id="input-routine-title" maxlength="60" placeholder="例：業界ニュースを3行で" />
+      </div>
+      <div class="field">
+        <label class="field__label" for="input-routine-why">なぜ頼む？（why）<span class="field__hint">毎回の依頼で見返せます</span></label>
+        <textarea id="input-routine-why" class="why-input" rows="2" maxlength="200" placeholder="例：朝のうちに業界の変化をつかんで、提案のネタにしたいから"></textarea>
+        <div class="chips chips--small chips--scroll why-starters" data-target="input-routine-why"></div>
       </div>
       <div class="field">
         <label class="field__label" for="input-routine-body">依頼文</label>
@@ -343,6 +354,12 @@
         <button type="button" id="btn-receive-close" class="modal__close" aria-label="閉じる">&times;</button>
       </div>
       <p class="modal__sub" id="receive-target"></p>
+      <div class="why-check" id="receive-why-box">
+        <p class="why-check__label">この依頼の why</p>
+        <p class="why-check__text" id="receive-why"></p>
+        <span class="field__label why-check__question" id="receive-why-question">why は満たせた？</span>
+        <div id="receive-why-met" class="segmented" role="radiogroup" aria-label="whyを満たせたか"></div>
+      </div>
       <div class="field">
         <span class="field__label">役に立った？</span>
         <div id="receive-stars" class="stars" role="radiogroup" aria-label="役立ち度"></div>
@@ -392,6 +409,20 @@
       <div class="modal__actions">
         <button type="button" id="btn-rescue-cancel" class="btn btn--ghost">キャンセル</button>
         <button type="submit" id="btn-rescue-submit" class="btn btn--primary">記録する</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 依頼の前に why を確認する -->
+  <div id="why-dialog-overlay" class="dialog-overlay">
+    <form id="why-form" class="dialog dialog--why" role="dialog" aria-modal="true" aria-labelledby="why-dialog-title" novalidate>
+      <div class="dialog__title" id="why-dialog-title">なぜ、この依頼をする？</div>
+      <p class="dialog__text" id="why-target"></p>
+      <textarea id="input-why" class="why-input" rows="3" maxlength="200" placeholder="例：判断の材料がほしいから"></textarea>
+      <div class="chips chips--small chips--scroll why-starters" data-target="input-why"></div>
+      <div class="dialog__actions">
+        <button type="button" id="btn-why-skip" class="btn btn--ghost">なしで依頼する</button>
+        <button type="submit" id="btn-why-ok" class="btn btn--primary">why を残して依頼</button>
       </div>
     </form>
   </div>

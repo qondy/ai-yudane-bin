@@ -1,6 +1,9 @@
 /** 1日3便 */
 export type Slot = 'morning' | 'evening' | 'night';
 
+/** whyを満たせたか */
+export type WhyMet = 'yes' | 'partly' | 'no';
+
 /** 使うAI */
 export type AiKind = 'chatgpt' | 'claude' | 'gemini' | 'other';
 
@@ -15,6 +18,8 @@ export type Status = 'stock' | 'planned' | 'sent' | 'received' | 'used';
 export interface Request {
   id: string;
   title: string;
+  /** なぜこの依頼をするのか（why） */
+  why: string;
   body: string;
   ai: AiKind;
   status: Status;
@@ -26,6 +31,8 @@ export interface Request {
   savedMin: number;
   /** 受け取ったときの役立ち度（0=未評価, 1〜5） */
   rating: number;
+  /** 受け取った結果で why を満たせたか（未確認は null） */
+  whyMet: WhyMet | null;
   /** ふりかえりメモ */
   memo: string;
   /** 定番の依頼から作られた場合の元ID */
@@ -43,6 +50,8 @@ export type RequestInput = Omit<Request, 'id' | 'createdAt'>;
 export interface Routine {
   id: string;
   title: string;
+  /** なぜこの依頼をするのか（why） */
+  why: string;
   body: string;
   ai: AiKind;
   slot: Slot;

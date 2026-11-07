@@ -3,7 +3,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { isDateKey } from './dates';
-import { isAiKind, isSlot, isStatus, LIMITS } from './templates';
+import { isAiKind, isSlot, isStatus, isWhyMet, LIMITS } from './templates';
 import { Request, RequestInput, Routine, RoutineInput } from './types';
 
 type ErrorHandler = (err: Error) => void;
@@ -25,6 +25,7 @@ export function subscribeRequests(uid: string, onData: (list: Request[]) => void
       list.push({
         id: d.id,
         title: data.title,
+        why: str(data.why),
         body: str(data.body),
         ai: isAiKind(data.ai) ? data.ai : 'other',
         // 便・日付が欠けている依頼は受け箱に戻す
@@ -33,6 +34,7 @@ export function subscribeRequests(uid: string, onData: (list: Request[]) => void
         date,
         savedMin: clampMin(data.savedMin),
         rating: isNum(data.rating) ? Math.min(5, Math.max(0, Math.round(data.rating))) : 0,
+        whyMet: isWhyMet(data.whyMet) ? data.whyMet : null,
         memo: str(data.memo),
         routineId: typeof data.routineId === 'string' ? data.routineId : null,
         sentAt: isNum(data.sentAt) ? data.sentAt : null,
@@ -68,6 +70,7 @@ export function subscribeRoutines(uid: string, onData: (list: Routine[]) => void
       list.push({
         id: d.id,
         title: data.title,
+        why: str(data.why),
         body: str(data.body),
         ai: isAiKind(data.ai) ? data.ai : 'other',
         slot: data.slot,
